@@ -9,10 +9,24 @@ def USBConnect():
         print("Connected!")
     else:
         print("Error! NFC Reader not detected!")
+
+def Echo():
+    output = nfc.Echo()
+    print("Sending echo to CR95HF... Result: ", output)
+
+def Select():
+    output = nfc.Select()
+    print(output[0], output[1], "success")
+
+def SendReceive():
+    output = nfc.SendReceive()
+    print(output[0], output[1], "success")
+
 def main():
     USBConnect()
-    nfc.Select()
-    nfc.SendReceive()
+    Echo()
+    Select()
+    SendReceive()
 
 
 
