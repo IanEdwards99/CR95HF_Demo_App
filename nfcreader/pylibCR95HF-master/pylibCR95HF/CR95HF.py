@@ -1,17 +1,19 @@
 #!/usr/bin/python
 import ctypes
 from ctypes import *
-cr95hf = ctypes.CDLL('libCR95HF.so');
+from datetime import datetime
 import time
+cr95hf = ctypes.CDLL('libCR95HF.so');
+
 #testlib = ctypes.CDLL('./testlib.so');
 
 #>>> Frame sent by the Host to CR95HF
 #<<< Frame sent by the CR95HF to the Host
 
-def USBConnect():
+def USBConnect(): #Expect '0000'
 	return cr95hf._Z20CR95HFlib_USBConnectv()
 
-def Echo():
+def Echo(): #Expected response of '5500'
 	strAnswer= ctypes.create_string_buffer(b'\000',50)
 	res=cr95hf._Z14CR95HFlib_EchoPc(strAnswer)
 	return (res,strAnswer.value.decode("utf-8"))
@@ -26,7 +28,7 @@ def getInterfacePinState():
 	res=cr95hf._Z30CR95HFlib_getInterfacePinStatePc(strAnswer)
 	return (res,strAnswer.value.decode("utf-8"))
 	
-def Idn():
+def Idn(): #Get ID number of IC.
 	strAnswer= ctypes.create_string_buffer(b'\000',50)
 	res=cr95hf._Z13CR95HFlib_IdnPc(strAnswer)
 	return (res,strAnswer.value.decode("utf-8"))
@@ -59,22 +61,6 @@ def Write_Block(location = '2',data = '00000000'): #remember to add check that d
 	answer = []
 	answer = SendReceive(command)
 	return (answer[0], answer[1])
-    
-    
-
-# def Read_Block(block=0):
-# 	strAnswer= ctypes.create_string_buffer(b'\000',50)
-# 	strRequest=c_uint(block)
-# 	res=cr95hf._Z20CR95HFlib_Read_BlockiPh(strRequest,strAnswer)
-# 	return (res,strAnswer.value)
-
-# def Write_Block(block, data):
-# 	strAnswer= ctypes.create_string_buffer(b'\000',50)
-# 	strData= ctypes.create_string_buffer(b'\000',50)
-# 	strRequest=c_uint(block)
-# 	res=cr95hf._Z21CR95HFlib_Write_BlockiPhS_(strRequest,strAnswer,strData)
-# 	return (res,strAnswer.value.decode("utf-8"))
-
 
 def FieldOff():
 	strAnswer= ctypes.create_string_buffer(b'\000',50)
@@ -96,12 +82,20 @@ def SendNSSPulse():
 	res=cr95hf._Z22CR95HFlib_SendNSSPulsePc(strAnswer)
 	return (res,strAnswer.value.decode("utf-8"));
 
-
 def STCmd(request=b'010803620100'): #default do protocol select
 	strAnswer= ctypes.create_string_buffer(b'\000',50)
 	strRequest=c_char_p(request)
 	res=cr95hf._Z15CR95HFlib_STCmdPcS_(strRequest,strAnswer)
 	return (res,strAnswer.value.decode("utf-8"))
+
+def Initiate():
+	return SendReceive(b'02D202') #initiate: 800D00FF3F748841CE5902E00D4D00
+
+def ResetToReady():
+    return SendReceive(b'0226') #expect: 80040078F000
+
+def GetSysInfo():
+    return SendReceive(b'022B') #expect: 8012000F3F748841CE5902E0FF007F035A107000
 
 # def continuousTagScan():
 # 	result = []
@@ -192,12 +186,12 @@ def continuousTagScan(): #attempt nr 2
 		print("big oof. No tag.")
 		return False
 
-def taghunt(): #taghunting just using command from software in CR95HF commands tab.
+def idleForTag(): #taghunting just using command from software in CR95HF commands tab.
 		found = False
 		pollVal = STCmd(b'01070E0A21007901180020606064743F08')
 		return pollVal
 
-def anothertaghunt():
+def tagHunting(): #Loop for 5 seconds looking for tag. Field off before and after?
 	found = False
 	t0 = time.time()
 	while not(found):
@@ -207,10 +201,80 @@ def anothertaghunt():
 		if (response[0] == 0):
 			found = True
 	if (found):
-		print("Found a tag!")
+		return True
 	else:
-		print("No tag found.")
+		return False
+
+def initiate():
+    return SendReceive(b'0226')
 
 def elapsedTime(t0):
 	t1 = time.time()
 	return t1 - t0
+
+def autoScanAndLog(dict, block = '2'): #Stores readings into dictionary with time of read. Optional: Specify location to read.
+    #Start scanning for tags, and read if found. Uses toggle boolean to see if its been found, must only read when it has been found AGAIN.
+	readAlready = False
+	try:
+		while True:
+			response = Read_Block(block) #ping tag by just trying to read - throws error code if cannot read ie not in range.
+			if (response[0] != 0): #If no response from tag ie. not found (error code of 4 for bad communication)
+				readAlready = False
+			if (response[0] == 0 and readAlready == False):
+				data = extractPayload(response[1])
+				print(response[1])
+				#Check if ID of that card is in dictionary, and if it is, if its last stored time is longer than 5 seconds
+				if (data in dict):
+					if ((datetime.now() - dict[data]).total_seconds() > 5):
+						dict[data] = datetime.now()
+						print(dict)
+				else:
+					dict[data] = datetime.now()
+					print(dict)
+
+				time.sleep(2)
+				readAlready = True
+	except KeyboardInterrupt:
+		print("\nScanning cancelled.")
+
+def ScanAndWrite(block = '2', data = '00000000'): #Can specify what to write and to where.
+    #scan continuously for tag writing to, and loop until successful write.
+	found = False
+	written = False
+	try:
+		while (written == False):
+			response = SendReceive() #ping tag by just trying to read - throws error code if cannot read ie not in range.
+			if (response[0] == 0):
+				attempt = Write_Block(block, data)
+				if (attempt[0] == 0):
+					written = True
+					response = Read_Block(block)
+					print("Successful write: ", response[1])
+	except KeyboardInterrupt:
+		print("\nScanning cancelled.")
+
+def extractPayload(reading): #80080000000005DA9801 OR 80080069696969297A00 position 6 to 13 has payload
+	return reading[6:14]
+
+def decToHex(dec):
+	# Dec to Hex => hex(dec) ==> 0x001 ==> prepHex(hex(dec)) = 001
+	return str(hex(int(dec)))[2:] #cut off front two values, return string form.
+
+def prepWrite(dec):
+	val = str(decToHex(dec))
+	length = 8 - len(val)
+	return length * '0' + val.upper()
+
+def hexToDec(hex): #Convert a hex value either 0x0000 or just 0000 (base 16) to decimal (base 10) read in as string
+    return int(hex, 16)
+
+def stringToHex(string):
+	# ASCII to hex ==> prepHex(hex(ord(ASCII)))
+	return hex(string)[2:] #cut off front two values
+
+def hexToString(hex): #Assumes input is string
+    return hex.decode("hex")
+
+
+    	
+    
