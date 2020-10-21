@@ -192,6 +192,25 @@ def continuousTagScan(): #attempt nr 2
 		print("big oof. No tag.")
 		return False
 
+def taghunt(): #taghunting just using command from software in CR95HF commands tab.
+		found = False
+		pollVal = STCmd(b'01070E0A21007901180020606064743F08')
+		return pollVal
+
+def anothertaghunt():
+	found = False
+	t0 = time.time()
+	while not(found):
+		if (time.time() - t0 > 5): #Timeout after 5 seconds of detecting generic tag.
+			break
+		response = SendReceive()
+		if (response[0] == 0):
+			found = True
+	if (found):
+		print("Found a tag!")
+	else:
+		print("No tag found.")
+
 def elapsedTime(t0):
 	t1 = time.time()
 	return t1 - t0

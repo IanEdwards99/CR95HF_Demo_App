@@ -30,19 +30,17 @@ def Reset():
 
 def main(): #Change how it starts... proper error check for USB error? Stop. etc.
     USBConnect()
-    Reset()
-    
-    
     #nfc.SendReceive(b'02D202') #initiate
     print(nfc.Select())
     print(nfc.SendReceive()) #inventory command of tag.
-    Echo()
     print("Welcome to NFC reader API demo!\n=========================================================")
     print("1) Read a block from the tag.")
     print("2) Write a block to the tag.")
     print("3) Enter Tag hunting mode.")
     print("4) Reset SPI connection (Reset).")
-    print("5) Exit.")
+    print("5) Inventory command on tag.")
+    print("6) Select 15693 protocol.")
+    print("7) Exit.")
     print('=========================================================')
     while (input != '0'):
         option = input("Please select an option from the menu:\n")
@@ -58,12 +56,19 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                 data = input("Please enter 8 digit hex data value:\n") #Make this decimal or string eventually...
                 print(nfc.Write_Block(location, data))
             if (option == 3):
-                nfc.ResetSPI()
-                nfc.continuousTagScan()
+                #nfc.ResetSPI()
+                #nfc.continuousTagScan()
+                #print(nfc.taghunt())
+                nfc.anothertaghunt()
             if (option == 4):
                 print("SPI connection reset.")
+                nfc.SendIRQPulse()
                 Reset()
             if (option == 5):
+                print(nfc.SendReceive())
+            if (option == 6):
+                print(nfc.Select())
+            if (option == 7):
                 print("Thank you for trying our API.")
                 sys.exit()
 
