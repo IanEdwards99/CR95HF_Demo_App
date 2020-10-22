@@ -212,31 +212,6 @@ def elapsedTime(t0):
 	t1 = time.time()
 	return t1 - t0
 
-def autoScanAndLog(dict, block = '2'): #Stores readings into dictionary with time of read. Optional: Specify location to read.
-    #Start scanning for tags, and read if found. Uses toggle boolean to see if its been found, must only read when it has been found AGAIN.
-	readAlready = False
-	try:
-		while True: #maybe add SendReceive first, then when its time to load, Read_Block (Double check)
-			response = Read_Block(block) #ping tag by just trying to read - throws error code if cannot read ie not in range.
-			if (response[0] != 0): #If no response from tag ie. not found (error code of 4 for bad communication)
-				readAlready = False
-			if (response[0] == 0 and readAlready == False): #If tag found
-				data = extractPayload(response[1])
-				print(response[1])
-				#Check if ID of that card is in dictionary, and if it is, if its last stored time is longer than 5 seconds
-				if (data in dict):
-					if ((datetime.now() - dict[data]).total_seconds() > 5):
-						dict[data] = datetime.now()
-						print(dict)
-				else:
-					dict[data] = datetime.now()
-					print(dict)
-
-				time.sleep(2)
-				readAlready = True
-	except KeyboardInterrupt:
-		print("\nScanning cancelled.")
-
 def ScanAndWrite(block = '2', data = '00000000'): #Can specify what to write and to where.
     #scan continuously for tag writing to, and loop until successful write.
 	found = False
