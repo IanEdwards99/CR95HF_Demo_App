@@ -216,7 +216,7 @@ def autoScanAndLog(dict, block = '2'): #Stores readings into dictionary with tim
     #Start scanning for tags, and read if found. Uses toggle boolean to see if its been found, must only read when it has been found AGAIN.
 	readAlready = False
 	try:
-		while True:
+		while True: #maybe add SendReceive first, then when its time to load, Read_Block (Double check)
 			response = Read_Block(block) #ping tag by just trying to read - throws error code if cannot read ie not in range.
 			if (response[0] != 0): #If no response from tag ie. not found (error code of 4 for bad communication)
 				readAlready = False
@@ -249,12 +249,21 @@ def ScanAndWrite(block = '2', data = '00000000'): #Can specify what to write and
 				if (attempt[0] == 0):
 					written = True
 					response = Read_Block(block)
-					print("Successful write: ", response[1])
+					#print("Successful write: ", response[1])
+					return response
 	except KeyboardInterrupt:
 		print("\nScanning cancelled.")
 
 def extractPayload(reading): #80080000000005DA9801 OR 80080069696969297A00 position 6 to 13 has payload
 	return reading[6:14]
+
+def cleanRegisters():
+	for i in range(128):
+		val = decToHex(i)
+		response = ScanAndWrite(val)
+		if (response[0] != 0):
+			print("Error cleaning register", val)
+	print("Completed.")
 
 def decToHex(dec):
 	# Dec to Hex => hex(dec) ==> 0x001 ==> prepHex(hex(dec)) = 001
@@ -263,7 +272,7 @@ def decToHex(dec):
 def prepWrite(dec):
 	val = str(decToHex(dec))
 	length = 8 - len(val)
-	return length * '0' + val.upper()
+	return length * '0' + val.upper() #Can also use z.fill(8)
 
 def hexToDec(hex): #Convert a hex value either 0x0000 or just 0000 (base 16) to decimal (base 10) read in as string
     return int(hex, 16)

@@ -39,6 +39,7 @@ def DisplayMenu():
     print("7) Scan and log tags.")
     print("8) Scan till written to tag.")
     print("9) Print records.")
+    print("C) Clean tag.")
     print("0) Exit.")
     print('=========================================================')
 
@@ -54,6 +55,8 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
             print("Incorrect option selected! Please try again.\n")
         elif (option == 'M'):
             DisplayMenu()
+        elif (option == "C"):
+            nfc.cleanRegisters()
         else:
             option = int(option)
             if (option == 1):
@@ -96,7 +99,9 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                 block = input("Please enter a block location to write to:\n")
                 data = input("Please enter a 10 digit decimal value to write:\n")
                 data = nfc.prepWrite(data) #Convert decimal input to hex input.
-                nfc.ScanAndWrite(block, data)
+                status = nfc.ScanAndWrite(block, data)
+                if status[0] == 0:
+                    print("Completed successfully! Wrote:", nfc.extractPayload(status[1]))
             if (option == 9):
                 print(records)
             if (option == 0):
