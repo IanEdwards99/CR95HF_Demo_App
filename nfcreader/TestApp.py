@@ -25,20 +25,23 @@ def autoScanAndLog(dict, block = '2'): #Stores readings into dictionary with tim
                 readAlready = False
                 output.failure(2)
             if (response[0] == 0 and readAlready == False): #If tag found
-                output.buzz_green(0.2)
                 data = nfc.extractPayload(response[1])
-                print(response[1])
+                dec = nfc.hexToDec(data)
+                print(dec)
+                output.lcd.clear()
+                output.lcd.write_string(u'Tag found!\n\rData: ' + str(dec))
                 #Check if ID of that card is in dictionary, and if it is, if its last stored time is longer than 5 seconds
                 if (data in dict):
                     if ((datetime.now() - dict[data]).total_seconds() > 5):
                         dict[data] = datetime.now()
-                        print(dict)
+                        print("Data:", dec, "\nTime:", datetime.now().time())
                 else:
                     dict[data] = datetime.now()
-                    print(dict)
-
-                time.sleep(2)
+                    print("Data:", dec, "\nTime:", datetime.now().time())
                 readAlready = True
+                output.buzz_green(0.2)
+                time.sleep(2)
+                
     except KeyboardInterrupt:
         print("\nScanning cancelled.")
 
@@ -52,7 +55,8 @@ def DisplayMenu():
     print("6) Select 15693 protocol.")
     print("7) Scan and log tags.")
     print("8) Scan till written to tag.")
-    print("9) Print records.")
+    print("9) Print stored records.")
+    print("R) Read entire tag contents.")
     print("C) Clean tag.")
     print("0) Exit.")
     print('=========================================================')
@@ -65,82 +69,163 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
         print(nfc.Select())
         print(nfc.SendReceive()) #inventory command of tag.
         DisplayMenu()
+        output.lcd.write_string(u'NFC reader\n\rinitialized.')
         while (input != '0'):
             option = input("Please select an option from the menu:\n(If you wish to redisplay the menu, please enter 'M')\n")
             if (len(option) != 1):
+                output.lcd.clear()
+                output.lcd.write_string(u'Incorrect option\n\rselected!')
                 print("Incorrect option selected! Please try again.\n")
             elif (option == 'M'):
                 DisplayMenu()
             elif (option == "C"):
-                nfc.cleanRegisters()
-                output.flash(3)
+                output.lcd.clear()
+                output.lcd.write_string(u'Place tag on reader.')
+                status = nfc.cleanRegisters()
+                if status:
+                    print("Completed cleaning registers.")
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Tag wiped.')
+                    output.flash(2)
+                else:
+                    print("Error cleaning registers.")
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Error\n\rcleaning.')
+                    output.failure(2)
+            elif (option == "R"):
+                output.lcd.clear()
+                output.lcd.write_string(u'Place tag\n\ron reader.')
+                val = nfc.readAll()
+                print("Address:\t", "Data:")
+                for i in range(0, 128):
+                    data = nfc.hexToDec(nfc.extractPayload(val[i]))
+                    if data != 0:
+                        print(i, "\t\t", data)
+                
             else:
                 option = int(option)
                 if (option == 1):
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Place your tag\n\ron the reader.')
                     location = input("Please enter a block location:\n")
                     val = nfc.Read_Block(location) #Add error checks...
                     if (val[0] != 0): #failed read
                         print(val[1])
-                        output.failure(3)
+                        output.lcd.clear()
+                        output.lcd.write_string("Error:\n\rRead failed.")
+                        output.failure(2)
                     else:
                         #print(nfc.Read_Block(location)) #prints out full response after read.
                         print("Data read (hex):", nfc.extractPayload(val[1])) #prints out just the payload read.
-                        print("Decimal value:", nfc.hexToDec(nfc.extractPayload(val[1])))
+                        string = nfc.hexToDec(nfc.extractPayload(val[1]))
+                        print("Decimal value:", string)
+                        output.lcd.clear()
+                        output.lcd.write_string("Value read:\n\r" + str(string))
                         output.buzz_green(0.4)
 
                 if (option == 2):
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Place your tag\n\ron the reader.')
                     location = input("Please enter a block location:\n")
                     data = input("Please enter a decimal data value:\n") #Max 10 digits
-                    data = nfc.prepWrite(data) #Convert decimal input to hex input.
-                    val = nfc.Write_Block(location, data)
-                    if (val[0] != 0): #Failed write
-                        print(val[1])
-                        output.failure(3)
+                    if data.isdigit():
+                        data = nfc.prepWrite(data)
+                        val = nfc.Write_Block(location, data)
+                        if (val[0] != 0): #Failed write
+                            print(val[1])
+                            output.lcd.clear()
+                            output.lcd.write_string("Error:\n\rWrite failed.")
+                            output.failure(2)
+                        else:
+                            #print(nfc.Write_Block(location, data)) #print full response after write.
+                            readVal = nfc.extractPayload(nfc.Read_Block(location)[1])
+                            print("Data written (hex):", readVal, "\nDecimal:", nfc.hexToDec(readVal))
+                            output.lcd.clear()
+                            output.lcd.write_string("Value written:\n\r" + str(nfc.hexToDec(readVal)))
+                            output.buzz_green(0.4)
                     else:
-                        #print(nfc.Write_Block(location, data)) #print full response after write.
-                        readVal = nfc.extractPayload(nfc.Read_Block(location)[1])
-                        print("Data written (hex):", readVal, "\nDecimal:", nfc.hexToDec(readVal))
-                        output.buzz_green(0.4)
+                        print("Please enter an integer for the data.")
 
                 if (option == 3):
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Looking for tag...')
                     if nfc.tagHunting():
-                        print("Tag found")
+                        print("Tag found.")
+                        output.lcd.clear()
+                        output.lcd.write_string(u'Tag found!')
                         output.buzz_green(0.4)
                     else:
-                        print("No tag found")
+                        print("No tag found.")
+                        output.lcd.clear()
+                        output.lcd.write_string(u'No tag found.')
                         output.failure(3)
                     # #Short syntax for if else, like ternary operator.
                 if (option == 4):
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Connection reset.')
                     print("SPI connection reset.")
                     nfc.SendIRQPulse()
                     nfc.ResetSPI()
                     nfc.Select() #After SPI reset need to reSelect protocol...
                     output.flash(3)
                     
-                if (option == 5): #add error checking
+                if (option == 5):
                     val = nfc.SendReceive()
                     if val[0] == 0:
-                        print(nfc.SendReceive())
+                        print(val)
+                        output.lcd.clear()
+                        output.lcd.write_string("Inventory\n\rsuccessful!")
                         output.buzz_green(0.4)
                     else:
+                        print(val[1])
+                        output.lcd.clear()
+                        output.lcd.write_string(u'Inventory\n\rfailed.')
                         output.failure(2)
                 if (option == 6):
-                    print(nfc.Select())
-                    output.toggle_green(True)
+                    val = nfc.Select()
+                    if val[0] == 0:
+                        print("ISO15693 protocol selected.")
+                        output.lcd.clear()
+                        output.lcd.write_string(u'Protocol select successful!')
+                        output.toggle_green(True)
+                    else:
+                        print("Failed to select ISO15693. Try again.")
+                        output.lcd.clear()
+                        output.lcd.write_string(u'Protocol select\n\rfailed.')
                 if (option == 7):
                     print("Press Ctrl + C to cancel scanning.")
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Scanning\n\rfor tags...')
                     autoScanAndLog(records)
                 if (option == 8):
                     block = input("Please enter a block location to write to:\n")
                     data = input("Please enter a 10 digit decimal value to write:\n")
-                    data = nfc.prepWrite(data) #Convert decimal input to hex input.
-                    status = nfc.ScanAndWrite(block, data)
-                    if status[0] == 0:
-                        output.buzz_green(0.4)
-                        print("Completed successfully! Wrote:", nfc.extractPayload(status[1]))
+                    if data.isdigit():
+                        data = nfc.prepWrite(data) #Convert decimal input to hex input.
+                        output.lcd.clear()
+                        output.lcd.write_string(u'Scanning\n\rto write...')
+                        status = nfc.ScanAndWrite(block, data)
+                        if status[0] == 0:
+                            data_out = nfc.extractPayload(status[1])
+                            output.lcd.clear()
+                            output.lcd.write_string(u'Wrote:\n\r' + str(data_out))
+                            output.buzz_green(0.4)
+                            print("Completed successfully! Wrote:", data_out)
+                        else:
+                            print(status[1])
+                            output.lcd.clear()
+                            output.lcd.write_string(u'Incorrect\n\rinput!')
+                    else:
+                        print("Incorrect data format! Integers only!")
+                        output.lcd.clear()
+                        output.lcd.write_string(u'Incorrect\n\rinput!')
                 if (option == 9):
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Records sent\n\rto terminal.')
                     print(records)
                 if (option == 0):
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Thank you for\n\rtrying our API.')
                     print("Thank you for trying our API.")
                     sys.exit()
             

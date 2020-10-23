@@ -5,13 +5,15 @@ import os
 import time
 import sys
 import nfcreader as nfc
+from RPLCD import CharLCD
 
 #Pins used
 LED_green = 11
 LED_red = 13
-buzzer = 33
+buzzer = 15
 HIGH = 1
 LOW = 0
+lcd = CharLCD(cols=16, rows=2, pin_rs=37, pin_e=35, pins_data=[40, 38, 36, 32, 33, 31, 29, 23], numbering_mode=GPIO.BOARD)
 
 def setup():
     GPIO.setmode(GPIO.BOARD)
@@ -73,7 +75,7 @@ def clear():
     GPIO.output(LED_green, LOW)
     GPIO.output(buzzer, LOW)
 
-def errorBuzz():
+def errorBuzz(delay):
     GPIO.output(LED_green, HIGH)
     GPIO.output(buzzer, HIGH)
     time.sleep(delay)
