@@ -7,6 +7,8 @@ import time
 import hardware as output
 import RPi.GPIO as GPIO
 
+protocols = ['ISO15693', 'ISO14443-A', 'ISO14443-B', 'ISO18092']
+
 def USBConnect():
     output = nfc.USBConnect()
     if (output == 0):
@@ -47,17 +49,17 @@ def autoScanAndLog(dict, block = '2'): #Stores readings into dictionary with tim
 
 def DisplayMenu():
     print("=========================================================\nWelcome to NFC reader API demo!\n=========================================================")
-    print("1) Read a block from the tag.")
-    print("2) Write a block to the tag.")
+    print("1) Select ISO protocol.")
+    print("2) Inventory command on tag.")
     print("3) Enter Tag hunting mode.")
-    print("4) Reset SPI connection (Reset).")
-    print("5) Inventory command on tag.")
-    print("6) Select 15693 protocol.")
-    print("7) Scan and log tags.")
-    print("8) Scan till written to tag.")
-    print("9) Print stored records.")
-    print("R) Read entire tag contents.")
+    print("4) Read a block from the tag.")
+    print("5) Write a block to the tag.")
+    print("6) Scan and log tags.")
+    print("7) Scan till written to tag.")
+    print("8) Print stored records.")
+    print("9) Read entire tag contents.")
     print("C) Clean tag.")
+    print("R) Reset SPI connection (Reset).")
     print("0) Exit.")
     print('=========================================================')
 
@@ -66,18 +68,23 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
         output.setup()
         records = {} #Create dictionary to store read values.
         USBConnect()
+        output.flash(1)
+        nfc.initiate()
         print(nfc.Select())
         print(nfc.SendReceive()) #inventory command of tag.
         DisplayMenu()
         output.lcd.write_string(u'NFC reader\n\rinitialized.')
         while (input != '0'):
+            output.toggle_buzzer(False)
             option = input("Please select an option from the menu:\n(If you wish to redisplay the menu, please enter 'M')\n")
             if (len(option) != 1):
                 output.lcd.clear()
                 output.lcd.write_string(u'Incorrect option\n\rselected!')
                 print("Incorrect option selected! Please try again.\n")
+
             elif (option == 'M'):
                 DisplayMenu()
+
             elif (option == "C"):
                 output.lcd.clear()
                 output.lcd.write_string(u'Place tag on reader.')
@@ -92,19 +99,67 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                     output.lcd.clear()
                     output.lcd.write_string(u'Error\n\rcleaning.')
                     output.failure(2)
+
             elif (option == "R"):
                 output.lcd.clear()
-                output.lcd.write_string(u'Place tag\n\ron reader.')
-                val = nfc.readAll()
-                print("Address:\t", "Data:")
-                for i in range(0, 128):
-                    data = nfc.hexToDec(nfc.extractPayload(val[i]))
-                    if data != 0:
-                        print(i, "\t\t", data)
-                
+                output.lcd.write_string(u'Connection reset.')
+                print("SPI connection reset.")
+                nfc.SendIRQPulse()
+                nfc.ResetSPI()
+                nfc.Select() #After SPI reset need to reSelect protocol...
+                output.flash(1)
+
             else:
                 option = int(option)
                 if (option == 1):
+                    choice = input("Select ISO protocol:\n1) ISO15693\n2) ISO14443-A\n3) ISO14443-B\n4) ISO18092")
+                    if ((len(choice) != 1) or not(choice.isdigit())):
+                        print("Error: Incorrect selection.")
+                        output.lcd.clear()
+                        output.lcd.write_string(u'Incorrect\n\rselection.')
+                    else:
+                        if (choice != 0):
+                            choice = int(choice)
+                            string = protocols[choice-1]
+                            val = nfc.Select(string)
+                            if val[0] == 0:
+                                print(string, "protocol selected.")
+                                output.lcd.clear()
+                                output.lcd.write_string(u'Protocol\n\rselected!')
+                                output.toggle_green(True)
+                            else:
+                                print("Failed to select", string, ". Try again.")
+                                output.lcd.clear()
+                                output.lcd.write_string(u'Protocol select\n\rfailed.')
+
+                if (option == 2):
+                    val = nfc.SendReceive()
+                    if val[0] == 0:
+                        print(val)
+                        output.lcd.clear()
+                        output.lcd.write_string("Inventory\n\rsuccessful!")
+                        output.buzz_green(0.4)
+                    else:
+                        print(val[1])
+                        output.lcd.clear()
+                        output.lcd.write_string(u'Inventory\n\rfailed.')
+                        output.failure(2)
+
+                if (option == 3):
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Looking for tag...')
+                    if nfc.tagHunting():
+                        print("Tag found.")
+                        output.lcd.clear()
+                        output.lcd.write_string(u'Tag found!')
+                        output.buzz_green(0.4)
+                    else:
+                        print("No tag found.")
+                        output.lcd.clear()
+                        output.lcd.write_string(u'No tag found.')
+                        output.failure(3)
+
+                if (option == 4):
                     output.lcd.clear()
                     output.lcd.write_string(u'Place your tag\n\ron the reader.')
                     location = input("Please enter a block location:\n")
@@ -122,8 +177,8 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                         output.lcd.clear()
                         output.lcd.write_string("Value read:\n\r" + str(string))
                         output.buzz_green(0.4)
-
-                if (option == 2):
+                    
+                if (option == 5):
                     output.lcd.clear()
                     output.lcd.write_string(u'Place your tag\n\ron the reader.')
                     location = input("Please enter a block location:\n")
@@ -146,58 +201,13 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                     else:
                         print("Please enter an integer for the data.")
 
-                if (option == 3):
-                    output.lcd.clear()
-                    output.lcd.write_string(u'Looking for tag...')
-                    if nfc.tagHunting():
-                        print("Tag found.")
-                        output.lcd.clear()
-                        output.lcd.write_string(u'Tag found!')
-                        output.buzz_green(0.4)
-                    else:
-                        print("No tag found.")
-                        output.lcd.clear()
-                        output.lcd.write_string(u'No tag found.')
-                        output.failure(3)
-                    # #Short syntax for if else, like ternary operator.
-                if (option == 4):
-                    output.lcd.clear()
-                    output.lcd.write_string(u'Connection reset.')
-                    print("SPI connection reset.")
-                    nfc.SendIRQPulse()
-                    nfc.ResetSPI()
-                    nfc.Select() #After SPI reset need to reSelect protocol...
-                    output.flash(3)
-                    
-                if (option == 5):
-                    val = nfc.SendReceive()
-                    if val[0] == 0:
-                        print(val)
-                        output.lcd.clear()
-                        output.lcd.write_string("Inventory\n\rsuccessful!")
-                        output.buzz_green(0.4)
-                    else:
-                        print(val[1])
-                        output.lcd.clear()
-                        output.lcd.write_string(u'Inventory\n\rfailed.')
-                        output.failure(2)
                 if (option == 6):
-                    val = nfc.Select()
-                    if val[0] == 0:
-                        print("ISO15693 protocol selected.")
-                        output.lcd.clear()
-                        output.lcd.write_string(u'Protocol select successful!')
-                        output.toggle_green(True)
-                    else:
-                        print("Failed to select ISO15693. Try again.")
-                        output.lcd.clear()
-                        output.lcd.write_string(u'Protocol select\n\rfailed.')
-                if (option == 7):
                     print("Press Ctrl + C to cancel scanning.")
                     output.lcd.clear()
                     output.lcd.write_string(u'Scanning\n\rfor tags...')
                     autoScanAndLog(records)
-                if (option == 8):
+
+                if (option == 7):
                     block = input("Please enter a block location to write to:\n")
                     data = input("Please enter a 10 digit decimal value to write:\n")
                     if data.isdigit():
@@ -219,10 +229,22 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                         print("Incorrect data format! Integers only!")
                         output.lcd.clear()
                         output.lcd.write_string(u'Incorrect\n\rinput!')
-                if (option == 9):
+
+                if (option == 8):
                     output.lcd.clear()
                     output.lcd.write_string(u'Records sent\n\rto terminal.')
                     print(records)
+
+                if (option == 9):
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Place tag\n\ron reader.')
+                    val = nfc.readAll()
+                    print("Address:\t", "Data:")
+                    for i in range(0, 128):
+                        data = nfc.hexToDec(nfc.extractPayload(val[i]))
+                        if data != 0:
+                            print(i, "\t\t", data)
+
                 if (option == 0):
                     output.lcd.clear()
                     output.lcd.write_string(u'Thank you for\n\rtrying our API.')
