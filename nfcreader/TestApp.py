@@ -8,6 +8,7 @@ import hardware as output
 import RPi.GPIO as GPIO
 
 protocols = ['ISO15693', 'ISO14443-A', 'ISO14443-B', 'ISO18092']
+IDNrs = ['1632436', '1632985', '1752468', '1234567']
 
 def USBConnect():
     output = nfc.USBConnect()
@@ -25,27 +26,46 @@ def autoScanAndLog(dict, block = '2'): #Stores readings into dictionary with tim
             response = nfc.Read_Block(block) #ping tag by just trying to read - throws error code if cannot read ie not in range.
             if (response[0] != 0): #If no response from tag ie. not found (error code of 4 for bad communication)
                 readAlready = False
-                output.failure(2)
+                output.failure(0.2)
             if (response[0] == 0 and readAlready == False): #If tag found
                 data = nfc.extractPayload(response[1])
                 dec = nfc.hexToDec(data)
-                print(dec)
-                output.lcd.clear()
-                output.lcd.write_string(u'Tag found!\n\rData: ' + str(dec))
-                #Check if ID of that card is in dictionary, and if it is, if its last stored time is longer than 5 seconds
-                if (data in dict):
-                    if ((datetime.now() - dict[data]).total_seconds() > 5):
+                if authenticate(str(dec)):
+                    print(dec)
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Tag found!\n\rData: ' + str(dec))
+                    #Check if ID of that card is in dictionary, and if it is, if its last stored time is longer than 5 seconds
+                    if (data in dict):
+                        if ((datetime.now() - dict[data]).total_seconds() > 5):
+                            dict[data] = datetime.now()
+                            print("Access granted!\nData:", dec, "\nTime:", datetime.now().time())
+                    else:
                         dict[data] = datetime.now()
-                        print("Data:", dec, "\nTime:", datetime.now().time())
+                        print("Access granted!\nData:", dec, "\nTime:", datetime.now().time())
+                    readAlready = True
+                    output.buzz_green(0.2)
+                    time.sleep(2)
                 else:
-                    dict[data] = datetime.now()
-                    print("Data:", dec, "\nTime:", datetime.now().time())
-                readAlready = True
-                output.buzz_green(0.2)
-                time.sleep(2)
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Access denied.')
                 
     except KeyboardInterrupt:
         print("\nScanning cancelled.")
+
+def addAccess(IDNr): #Add value ie. PeopleSoft Number to list of values allowed into system.
+    present = False
+    if IDNr in IDNrs:
+        present = True
+    if not(present):
+        IDNrs.append(IDNr)
+
+def authenticate(val): #Check if val is in IDNrs, used to check if tag swiped is on system.
+    if val in IDNrs:
+        return True
+    else:
+        return False
+
+
 
 def DisplayMenu():
     print("=========================================================\nWelcome to NFC reader API demo!\n=========================================================")
@@ -54,10 +74,11 @@ def DisplayMenu():
     print("3) Enter Tag hunting mode.")
     print("4) Read a block from the tag.")
     print("5) Write a block to the tag.")
-    print("6) Scan and log tags.")
+    print("6) Access control demo.")
     print("7) Scan till written to tag.")
-    print("8) Print stored records.")
+    print("8) Print authorized-tag access history.")
     print("9) Read entire tag contents.")
+    print("A) Add tag access.")
     print("C) Clean tag.")
     print("R) Reset SPI connection (Reset).")
     print("0) Exit.")
@@ -68,7 +89,7 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
         output.setup()
         records = {} #Create dictionary to store read values.
         USBConnect()
-        output.flash(1)
+        output.flash(0.5)
         nfc.initiate()
         print(nfc.Select())
         print(nfc.SendReceive()) #inventory command of tag.
@@ -76,7 +97,7 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
         output.lcd.write_string(u'NFC reader\n\rinitialized.')
         while (input != '0'):
             output.toggle_buzzer(False)
-            option = input("Please select an option from the menu:\n(If you wish to redisplay the menu, please enter 'M')\n")
+            option = input("Please select an option from the menu:\n(If you wish to redisplay the menu, please enter 'M')\n").upper()
             if (len(option) != 1):
                 output.lcd.clear()
                 output.lcd.write_string(u'Incorrect option\n\rselected!')
@@ -109,10 +130,37 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                 nfc.Select() #After SPI reset need to reSelect protocol...
                 output.flash(1)
 
+            elif (option == "A"):
+                output.lcd.clear()
+                output.lcd.write_string(u'Present tag.')
+                PplSoftNr = input("Enter PeopleSoft number:\n")
+                if (PplSoftNr.isdigit()) and (len(PplSoftNr) == 7):
+                    addAccess(PplSoftNr)
+                    #Write value to tag...
+                    data = nfc.prepWrite(PplSoftNr) #Convert decimal input to hex input.
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Scanning\n\rto write...')
+                    status = nfc.ScanAndWrite('2', data)
+                    if status[0] == 0:
+                        data_out = nfc.extractPayload(status[1])
+                        output.lcd.clear()
+                        output.lcd.write_string(u'Wrote:\n\r' + str(data_out))
+                        output.buzz_green(0.4)
+                        print("Completed successfully! Wrote:", data_out)
+                    else:
+                        print(status[1])
+                        output.lcd.clear()
+                        output.lcd.write_string(u'Incorrect\n\rinput!')
+                else:
+                    print("Incorrect PeopleSoft Number!")
+            
+            elif (not(option.isdigit())):
+                print("Incorrect option selected.")
+
             else:
                 option = int(option)
                 if (option == 1):
-                    choice = input("Select ISO protocol:\n1) ISO15693\n2) ISO14443-A\n3) ISO14443-B\n4) ISO18092")
+                    choice = input("Select ISO protocol:\n1) ISO15693\n2) ISO14443-A\n3) ISO14443-B\n4) ISO18092\n")
                     if ((len(choice) != 1) or not(choice.isdigit())):
                         print("Error: Incorrect selection.")
                         output.lcd.clear()
@@ -148,6 +196,7 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                 if (option == 3):
                     output.lcd.clear()
                     output.lcd.write_string(u'Looking for tag...')
+                    print('Looking for tag...')
                     if nfc.tagHunting():
                         print("Tag found.")
                         output.lcd.clear()
@@ -244,6 +293,8 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                         data = nfc.hexToDec(nfc.extractPayload(val[i]))
                         if data != 0:
                             print(i, "\t\t", data)
+                    output.lcd.clear()
+                    output.lcd.write_string(u'Finished reading.')
 
                 if (option == 0):
                     output.lcd.clear()

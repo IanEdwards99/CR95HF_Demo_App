@@ -11,7 +11,7 @@ protocol_selected = 1 #ISO15693 = 1, ISO14443-A = 2, ISO14443-B = 3, ISO18092 = 
 #>>> Frame sent by the Host to CR95HF
 #<<< Frame sent by the CR95HF to the Host
 
-def USBConnect(): #Expect '0000'
+def USBConnect(): #Expect '0'
 	return cr95hf._Z20CR95HFlib_USBConnectv()
 
 def Echo(): #Expected response of '5500'
