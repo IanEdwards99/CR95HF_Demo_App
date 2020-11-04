@@ -26,4 +26,6 @@ deploy:
   on:
     tags: true
     repo: EDWIAN004@myuct.ac.za/nfcreader
-    python: 3.8
+    python: 3.5
+git: #added line
+  lfs_skip_smudge: true
