@@ -1,4 +1,7 @@
 """Main module."""
+#Module to test nfcreader API.
+#Authors: Ian Edwards and Agoritsa Spirakis
+#MIT License
 import sys
 sys.path.insert(1, './src/')
 import nfcreader as nfc
@@ -7,10 +10,11 @@ import time
 import hardware as output
 import RPi.GPIO as GPIO
 
-protocols = ['ISO15693', 'ISO14443-A', 'ISO14443-B', 'ISO18092']
-IDNrs = ['1632436', '1632985', '1752468', '1234567']
+protocols = ['ISO15693', 'ISO14443-A', 'ISO14443-B', 'ISO18092'] #Protocols supported by API.
+IDNrs = ['1632436', '1632985', '1752468', '1234567'] #Access control demo values.
 
-def USBConnect():
+# User friendly USB connect function.
+def USBConnect(): 
     output = nfc.USBConnect()
     if (output == 0):
         print("Connected!")
@@ -18,13 +22,14 @@ def USBConnect():
         print("Error! NFC Reader not detected!")
         sys.exit(0)
 
-def autoScanAndLog(dict, block = '2'): #Stores readings into dictionary with time of read. Optional: Specify location to read.
+# Stores readings into dictionary with time of read. Optional: Specify location to read.
+def autoScanAndLog(dict, block = '2'): 
     #Start scanning for tags, and read if found. Uses toggle boolean to see if its been found, must only read when it has been found AGAIN.
     readAlready = False
     try:
-        while True: #maybe add SendReceive first, then when its time to load, Read_Block (Double check)
+        while True:
             response = nfc.Read_Block(block) #ping tag by just trying to read - throws error code if cannot read ie not in range.
-            if (response[0] != 0): #If no response from tag ie. not found (error code of 4 for bad communication)
+            if (response[0] != 0): #If no response from tag ie. not found (error code of 5 for bad communication)
                 readAlready = False
                 output.failure(0.2)
             if (response[0] == 0 and readAlready == False): #If tag found
@@ -52,21 +57,23 @@ def autoScanAndLog(dict, block = '2'): #Stores readings into dictionary with tim
     except KeyboardInterrupt:
         print("\nScanning cancelled.")
 
-def addAccess(IDNr): #Add value ie. PeopleSoft Number to list of values allowed into system.
+# Add value ie. PeopleSoft Number to list of values allowed into system.
+def addAccess(IDNr): 
     present = False
     if IDNr in IDNrs:
         present = True
     if not(present):
         IDNrs.append(IDNr)
 
-def authenticate(val): #Check if val is in IDNrs, used to check if tag swiped is on system.
+# Check if val is in IDNrs, used to check if tag swiped is on system.
+def authenticate(val): 
     if val in IDNrs:
         return True
     else:
         return False
 
 
-
+# Display GUI for Test App.
 def DisplayMenu():
     print("=========================================================\nWelcome to NFC reader API demo!\n=========================================================")
     print("1) Select ISO protocol.")
@@ -84,29 +91,31 @@ def DisplayMenu():
     print("0) Exit.")
     print('=========================================================')
 
-def main(): #Change how it starts... proper error check for USB error? Stop. etc.
+# main method to implement functionality of API and demo. A menu is displayed with options to select from, and loops indefinitely for as many choices as one wishes.
+# A lot of error checking is implemented to show a user what to look out for, and what error messages are returned from the API.
+def main():
     try:
-        output.setup()
-        records = {} #Create dictionary to store read values.
-        USBConnect()
+        output.setup() # Setup GUI (extra)
+        records = {} # Create dictionary to store read values (for data collection and access control).
+        USBConnect() # Establish USB connection with NFC reader.
         output.flash(0.5)
         nfc.initiate()
-        print(nfc.Select())
+        print(nfc.Select()) # Select ISO15693 NFC protocol.
         print(nfc.SendReceive()) #inventory command of tag.
-        DisplayMenu()
-        output.lcd.write_string(u'NFC reader\n\rinitialized.')
-        while (input != '0'):
+        DisplayMenu() # Display GUI.
+        output.lcd.write_string(u'NFC reader\n\rinitialized.') # Initialize LCD Display.
+        while (input != '0'): # 0 is to Exit program.
             output.toggle_buzzer(False)
             option = input("Please select an option from the menu:\n(If you wish to redisplay the menu, please enter 'M')\n").upper()
-            if (len(option) != 1):
+            if (len(option) != 1): # Check for incorrect input.
                 output.lcd.clear()
                 output.lcd.write_string(u'Incorrect option\n\rselected!')
                 print("Incorrect option selected! Please try again.\n")
 
-            elif (option == 'M'):
+            elif (option == 'M'): # Redisplay menu
                 DisplayMenu()
 
-            elif (option == "C"):
+            elif (option == "C"): # Clear contents of tag.
                 output.lcd.clear()
                 output.lcd.write_string(u'Place tag on reader.')
                 status = nfc.cleanRegisters()
@@ -121,7 +130,7 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                     output.lcd.write_string(u'Error\n\rcleaning.')
                     output.failure(2)
 
-            elif (option == "R"):
+            elif (option == "R"): # Reset SPI connection to CR95HF.
                 output.lcd.clear()
                 output.lcd.write_string(u'Connection reset.')
                 print("SPI connection reset.")
@@ -130,7 +139,7 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                 nfc.Select() #After SPI reset need to reSelect protocol...
                 output.flash(1)
 
-            elif (option == "A"):
+            elif (option == "A"): # Add access to a tag - write a student ID number to address location 2.
                 output.lcd.clear()
                 output.lcd.write_string(u'Present tag.')
                 PplSoftNr = input("Enter PeopleSoft number:\n")
@@ -158,8 +167,8 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                 print("Incorrect option selected.")
 
             else:
-                option = int(option)
-                if (option == 1):
+                option = int(option) # If after all the above options, there are more character entries, then it is an incorrect entry.
+                if (option == 1): # Select protocol.
                     choice = input("Select ISO protocol:\n1) ISO15693\n2) ISO14443-A\n3) ISO14443-B\n4) ISO18092\n")
                     if ((len(choice) != 1) or not(choice.isdigit())):
                         print("Error: Incorrect selection.")
@@ -180,7 +189,7 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                                 output.lcd.clear()
                                 output.lcd.write_string(u'Protocol select\n\rfailed.')
 
-                if (option == 2):
+                if (option == 2): # Inventory request
                     val = nfc.SendReceive()
                     if val[0] == 0:
                         print(val)
@@ -193,7 +202,7 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                         output.lcd.write_string(u'Inventory\n\rfailed.')
                         output.failure(2)
 
-                if (option == 3):
+                if (option == 3): # Tag hunting mode.
                     output.lcd.clear()
                     output.lcd.write_string(u'Looking for tag...')
                     print('Looking for tag...')
@@ -208,7 +217,7 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                         output.lcd.write_string(u'No tag found.')
                         output.failure(3)
 
-                if (option == 4):
+                if (option == 4): # Read a block from the tag.
                     output.lcd.clear()
                     output.lcd.write_string(u'Place your tag\n\ron the reader.')
                     location = input("Please enter a block location:\n")
@@ -227,7 +236,7 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                         output.lcd.write_string("Value read:\n\r" + str(string))
                         output.buzz_green(0.4)
                     
-                if (option == 5):
+                if (option == 5): # Write a tag to the block.
                     output.lcd.clear()
                     output.lcd.write_string(u'Place your tag\n\ron the reader.')
                     location = input("Please enter a block location:\n")
@@ -250,13 +259,13 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                     else:
                         print("Please enter an integer for the data.")
 
-                if (option == 6):
+                if (option == 6): # Demo access control - only tags with access registered will be verified correctly.
                     print("Press Ctrl + C to cancel scanning.")
                     output.lcd.clear()
                     output.lcd.write_string(u'Scanning\n\rfor tags...')
                     autoScanAndLog(records)
 
-                if (option == 7):
+                if (option == 7): # Carry out ScanAndWrite function (absolute write.)
                     block = input("Please enter a block location to write to:\n")
                     data = input("Please enter a 10 digit decimal value to write:\n")
                     if data.isdigit():
@@ -279,12 +288,12 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                         output.lcd.clear()
                         output.lcd.write_string(u'Incorrect\n\rinput!')
 
-                if (option == 8):
+                if (option == 8): # Print out tags that have been swiped and last time swiped.
                     output.lcd.clear()
                     output.lcd.write_string(u'Records sent\n\rto terminal.')
                     print(records)
 
-                if (option == 9):
+                if (option == 9): # Read entire contents of tag.
                     output.lcd.clear()
                     output.lcd.write_string(u'Place tag\n\ron reader.')
                     val = nfc.readAll()
@@ -296,7 +305,7 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
                     output.lcd.clear()
                     output.lcd.write_string(u'Finished reading.')
 
-                if (option == 0):
+                if (option == 0): # Exit program.
                     output.lcd.clear()
                     output.lcd.write_string(u'Thank you for\n\rtrying our API.')
                     print("Thank you for trying our API.")
@@ -307,6 +316,6 @@ def main(): #Change how it starts... proper error check for USB error? Stop. etc
         GPIO.cleanup() # cleanup all GPIO 
 
 
-
+# If TestApp is run as the python script, it will be the main program and thus its main method will execute.
 if __name__ == "__main__":
     main()
