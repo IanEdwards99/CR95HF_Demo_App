@@ -8,18 +8,18 @@ Demonstrator Application for nfcreader API for CR95HF module
 
 .. image:: https://readthedocs.org/projects/cr95hf-demo-app/badge/?version=latest
 :target: https://cr95hf-demo-app.readthedocs.io/en/latest/?badge=latest
-:alt: Documentation Status
 
 
 Python demonstration application for CR95HF NFC Reader API for an access control use-case.
 
 * Free software: MIT license
-* Documentation: https://nfcreader.readthedocs.io.
+* Documentation: https://cr95hf-demo-app.readthedocs.io/
 
 Abstract
 --------
 The aim was to provide better support for the CR95HF's use for the Raspberry Pi in Python3, via an API.
 Thus an API was developed here: https://github.com/IanEdwards99/nfcreader
+Documentation for nfcreader: https://nfcreader.readthedocs.io
 
 Features of Demonstrator Application
 ------------------------------------
