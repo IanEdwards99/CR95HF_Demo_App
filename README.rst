@@ -6,9 +6,9 @@ Demonstrator Application for nfcreader API for CR95HF module
 .. image:: https://img.shields.io/pypi/v/nfcreader.svg
         :target: https://pypi.python.org/pypi/nfcreader
 
-.. image:: https://readthedocs.org/projects/CR95HF_Demo_App/badge/?version=latest
-        :target: https://nfcreader.readthedocs.io/en/latest/?badge=latest
-        :alt: Documentation Status
+.. image:: https://readthedocs.org/projects/cr95hf-demo-app/badge/?version=latest
+:target: https://cr95hf-demo-app.readthedocs.io/en/latest/?badge=latest
+:alt: Documentation Status
 
 
 Python demonstration application for CR95HF NFC Reader API for an access control use-case.
@@ -37,6 +37,10 @@ Features of Demonstrator Application
 - Clean tag (wipe all address locations clean.)
 - Reset SPI connection to NFC reader from Pi.
 - Exit demonstrator.
+
+Installation
+-------------
+Please follow instructions at https://github.com/IanEdwards99/nfcreader to run this demonstrator.
 
 Credits
 -------
