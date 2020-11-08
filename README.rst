@@ -6,7 +6,7 @@ Demonstrator Application for nfcreader API for CR95HF module
 .. image:: https://img.shields.io/pypi/v/nfcreader.svg
         :target: https://pypi.python.org/pypi/nfcreader
 
-.. image:: https://readthedocs.org/projects/nfcreader/badge/?version=latest
+.. image:: https://readthedocs.org/projects/CR95HF_Demo_App/badge/?version=latest
         :target: https://nfcreader.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
 
